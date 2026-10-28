@@ -1,7 +1,12 @@
+import os
+
 from pico2d import *
 
 from grass import Grass
 from boy import Boy
+
+# 이미지를 상대경로로 읽으므로, 다른 폴더에서 실행해도 찾도록 작업 폴더를 이 파일 위치로 옮긴다.
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
 def handle_events():
