@@ -84,7 +84,9 @@ class Boy:
             self.lie = max(0.0, self.lie - step)
 
         if self.state == 'IDLE':
-            self.frame = (self.frame + 1) % 8  # 자는 동안은 움직이지 않는다.
+            # 자는 동안과 일어나는 도중에는 움직이지 않고, 다 일어선 뒤부터 움직인다.
+            if self.lie == 0.0:
+                self.frame = (self.frame + 1) % 8
             if now - self.wait_start_time >= SLEEP_WAIT_TIME:
                 self.time_out()
         elif self.state == 'RUN':
