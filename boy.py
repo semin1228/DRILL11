@@ -12,6 +12,7 @@ HALF_WIDTH = 32        # 그림 중심에서 몸 끝까지 가로 거리 (달리
 FOOT_DY = 39           # 그림 중심에서 발끝까지 세로 거리 (달리기 스프라이트 실측값)
 AUTO_RUN_SPEED = RUN_SPEED * 2  # 자동 무적 런은 2배 빠르다.
 AUTO_RUN_SCALE = 2.0            # 자동 무적 런은 2배 크다.
+AUTO_RUN_TIME = 5.0             # 자동 무적 런이 이 시간(초)이 지나면 IDLE 로 돌아간다.
 
 # 회전 중심 = 발뒤꿈치. 그림 중심에서 뒤쪽으로 4px, 아래로 38px (스프라이트 실측값)
 # 뒤꿈치를 축으로 넘어지면 발은 땅에 붙은 채로, 누웠을 때 등이 땅에 닿는다.
@@ -26,6 +27,7 @@ class AutoRun(State):
         boy = event_data.model
         boy.lie = 0.0  # 일어나는 도중에 들어와도 바로 선 자세로 달린다.
         boy.scale = AUTO_RUN_SCALE
+        self.start_time = get_time()
         super().enter(event_data)
 
     # exit action
@@ -43,6 +45,9 @@ class AutoRun(State):
             boy.x, boy.face_dir = half, 1
         elif boy.x >= get_canvas_width() - half:
             boy.x, boy.face_dir = get_canvas_width() - half, -1
+
+        if now - self.start_time >= AUTO_RUN_TIME:
+            boy.time_out()
 
     def draw(self, boy):
         bottom = 100 if boy.face_dir == 1 else 0
@@ -76,7 +81,7 @@ class Boy:
 
         # IDLE --time_out--> SLEEP --space_down--> IDLE
         # IDLE, SLEEP --run--> RUN --stop--> IDLE  (왼쪽/오른쪽은 move_dir 로 구분)
-        # IDLE --a_down--> AUTO_RUN
+        # IDLE --a_down--> AUTO_RUN --time_out--> IDLE
         self.machine = Machine(
             model=self,
             states=['IDLE', 'SLEEP', 'RUN', self.auto_run],
@@ -86,6 +91,7 @@ class Boy:
                 {'trigger': 'run', 'source': ['IDLE', 'SLEEP'], 'dest': 'RUN'},
                 {'trigger': 'stop', 'source': 'RUN', 'dest': 'IDLE'},
                 {'trigger': 'a_down', 'source': 'IDLE', 'dest': 'AUTO_RUN'},
+                {'trigger': 'time_out', 'source': 'AUTO_RUN', 'dest': 'IDLE'},
             ],
             initial='IDLE',
             auto_transitions=False,
