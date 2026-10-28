@@ -80,7 +80,7 @@ class Boy:
         self.auto_run = AutoRun('AUTO_RUN')
 
         # IDLE --time_out--> SLEEP --space_down--> IDLE
-        # IDLE, SLEEP --run--> RUN --stop--> IDLE  (왼쪽/오른쪽은 move_dir 로 구분)
+        # IDLE, SLEEP, AUTO_RUN --run--> RUN --stop--> IDLE  (왼쪽/오른쪽은 move_dir 로 구분)
         # IDLE --a_down--> AUTO_RUN --time_out--> IDLE
         self.machine = Machine(
             model=self,
@@ -88,7 +88,7 @@ class Boy:
             transitions=[
                 {'trigger': 'time_out', 'source': 'IDLE', 'dest': 'SLEEP'},
                 {'trigger': 'space_down', 'source': 'SLEEP', 'dest': 'IDLE'},
-                {'trigger': 'run', 'source': ['IDLE', 'SLEEP'], 'dest': 'RUN'},
+                {'trigger': 'run', 'source': ['IDLE', 'SLEEP', 'AUTO_RUN'], 'dest': 'RUN'},
                 {'trigger': 'stop', 'source': 'RUN', 'dest': 'IDLE'},
                 {'trigger': 'a_down', 'source': 'IDLE', 'dest': 'AUTO_RUN'},
                 {'trigger': 'time_out', 'source': 'AUTO_RUN', 'dest': 'IDLE'},
