@@ -33,12 +33,16 @@ class AutoRun(State):
         event_data.model.scale = 1.0
         super().exit(event_data)
 
-    # do activity: 매 프레임 바라보는 방향으로 빠르게 달린다.
+    # do activity: 매 프레임 바라보는 방향으로 빠르게 달리고, 화면 끝에서 돌아선다.
     def do(self, boy, now, dt):
         boy.frame = (boy.frame + 1) % 8
         boy.x += boy.face_dir * AUTO_RUN_SPEED * dt
+
         half = HALF_WIDTH * boy.scale  # 커진 만큼 화면 끝 여백도 늘린다.
-        boy.x = max(half, min(get_canvas_width() - half, boy.x))
+        if boy.x <= half:
+            boy.x, boy.face_dir = half, 1
+        elif boy.x >= get_canvas_width() - half:
+            boy.x, boy.face_dir = get_canvas_width() - half, -1
 
     def draw(self, boy):
         bottom = 100 if boy.face_dir == 1 else 0
