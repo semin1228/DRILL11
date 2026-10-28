@@ -6,6 +6,7 @@ from transitions import Machine
 
 SLEEP_WAIT_TIME = 5.0  # IDLE 상태로 이 시간(초)이 지나면 SLEEP 으로 간다.
 LIE_DOWN_TIME = 0.6    # 눕거나 일어나는 데 걸리는 시간(초)
+QUICK_GET_UP_TIME = 0.2  # 달리려고 벌떡 일어나는 데 걸리는 시간(초)
 RUN_SPEED = 300        # 달리기 속도(픽셀/초)
 HALF_WIDTH = 32        # 그림 중심에서 몸 끝까지 가로 거리 (달리기 스프라이트 실측값)
 
@@ -52,11 +53,6 @@ class Boy:
     def on_enter_IDLE(self):
         self.wait_start_time = get_time()
 
-    # 달리기는 항상 선 자세로 그린다. 누운 정도도 바로 0 으로 맞춰야
-    # 곧바로 멈췄을 때 IDLE 이 반쯤 누운 채로 그려지지 않는다.
-    def on_enter_RUN(self):
-        self.lie = 0.0
-
     # 눌린 방향키로 이동 방향을 구한다. 둘 다 눌렸거나 둘 다 안 눌렸으면 0.
     def move_dir(self):
         return int(self.right_pressed) - int(self.left_pressed)
@@ -82,11 +78,13 @@ class Boy:
         self.last_time = now
 
         # SLEEP 이면 누운 쪽(1.0)으로, 아니면 선 쪽(0.0)으로 조금씩 움직인다.
-        step = dt / LIE_DOWN_TIME
+        # 달리려고 일어날 때(RUN)는 SPACE 로 깰 때보다 빠르게 일어난다.
         if self.state == 'SLEEP':
-            self.lie = min(1.0, self.lie + step)
+            self.lie = min(1.0, self.lie + dt / LIE_DOWN_TIME)
+        elif self.state == 'RUN':
+            self.lie = max(0.0, self.lie - dt / QUICK_GET_UP_TIME)
         else:
-            self.lie = max(0.0, self.lie - step)
+            self.lie = max(0.0, self.lie - dt / LIE_DOWN_TIME)
 
         if self.state == 'IDLE':
             # 자는 동안과 일어나는 도중에는 움직이지 않고, 다 일어선 뒤부터 움직인다.
@@ -94,7 +92,7 @@ class Boy:
                 self.frame = (self.frame + 1) % 8
             if now - self.wait_start_time >= SLEEP_WAIT_TIME:
                 self.time_out()
-        elif self.state == 'RUN':
+        elif self.state == 'RUN' and self.lie == 0.0:  # 다 일어선 뒤부터 달린다.
             self.frame = (self.frame + 1) % 8
             self.face_dir = self.move_dir()
             self.x += self.face_dir * RUN_SPEED * dt
@@ -102,7 +100,7 @@ class Boy:
             self.x = max(HALF_WIDTH, min(get_canvas_width() - HALF_WIDTH, self.x))
 
     def draw(self):
-        if self.state == 'RUN':
+        if self.state == 'RUN' and self.lie == 0.0:
             # 아래에서 두 번째 줄(100)은 오른쪽, 맨 아랫줄(0)은 왼쪽으로 달린다.
             bottom = 100 if self.face_dir == 1 else 0
             self.image.clip_draw(self.frame * 100, bottom, 100, 100, self.x, self.y)
