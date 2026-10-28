@@ -1,8 +1,8 @@
 import math
 
 from pico2d import (load_image, get_time, get_canvas_width,
-                    SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_LEFT, SDLK_RIGHT)
-from transitions import Machine
+                    SDL_KEYDOWN, SDL_KEYUP, SDLK_SPACE, SDLK_LEFT, SDLK_RIGHT, SDLK_a)
+from transitions import Machine, State
 
 SLEEP_WAIT_TIME = 5.0  # IDLE 상태로 이 시간(초)이 지나면 SLEEP 으로 간다.
 LIE_DOWN_TIME = 0.6    # 눕거나 일어나는 데 걸리는 시간(초)
@@ -13,6 +13,26 @@ HALF_WIDTH = 32        # 그림 중심에서 몸 끝까지 가로 거리 (달리
 # 회전 중심 = 발뒤꿈치. 그림 중심에서 뒤쪽으로 4px, 아래로 38px (스프라이트 실측값)
 # 뒤꿈치를 축으로 넘어지면 발은 땅에 붙은 채로, 누웠을 때 등이 땅에 닿는다.
 HEEL_DX, HEEL_DY = 4, 38
+
+
+class AutoRun(State):
+    """자동 무적 런: a 키로 들어와 키 조작 없이 계속 달린다."""
+
+    # entry action
+    def enter(self, event_data):
+        boy = event_data.model
+        boy.lie = 0.0  # 일어나는 도중에 들어와도 바로 선 자세로 달린다.
+        super().enter(event_data)
+
+    # do activity: 매 프레임 바라보는 방향으로 달린다.
+    def do(self, boy, now, dt):
+        boy.frame = (boy.frame + 1) % 8
+        boy.x += boy.face_dir * RUN_SPEED * dt
+        boy.x = max(HALF_WIDTH, min(get_canvas_width() - HALF_WIDTH, boy.x))
+
+    def draw(self, boy):
+        bottom = 100 if boy.face_dir == 1 else 0
+        boy.image.clip_draw(boy.frame * 100, bottom, 100, 100, boy.x, boy.y)
 
 
 class Boy:
@@ -33,16 +53,21 @@ class Boy:
         # 초기 상태 진입 시에는 on_enter_IDLE 이 호출되지 않으므로 직접 타이머를 시작한다.
         self.wait_start_time = get_time()
 
+        # AUTO_RUN 은 할 일이 많아서 상태 클래스(AutoRun)로 만든다.
+        self.auto_run = AutoRun('AUTO_RUN')
+
         # IDLE --time_out--> SLEEP --space_down--> IDLE
         # IDLE, SLEEP --run--> RUN --stop--> IDLE  (왼쪽/오른쪽은 move_dir 로 구분)
+        # IDLE --a_down--> AUTO_RUN
         self.machine = Machine(
             model=self,
-            states=['IDLE', 'SLEEP', 'RUN'],
+            states=['IDLE', 'SLEEP', 'RUN', self.auto_run],
             transitions=[
                 {'trigger': 'time_out', 'source': 'IDLE', 'dest': 'SLEEP'},
                 {'trigger': 'space_down', 'source': 'SLEEP', 'dest': 'IDLE'},
                 {'trigger': 'run', 'source': ['IDLE', 'SLEEP'], 'dest': 'RUN'},
                 {'trigger': 'stop', 'source': 'RUN', 'dest': 'IDLE'},
+                {'trigger': 'a_down', 'source': 'IDLE', 'dest': 'AUTO_RUN'},
             ],
             initial='IDLE',
             auto_transitions=False,
@@ -60,6 +85,8 @@ class Boy:
     def handle_event(self, event):
         if event.type == SDL_KEYDOWN and event.key == SDLK_SPACE:
             self.space_down()
+        elif event.type == SDL_KEYDOWN and event.key == SDLK_a:
+            self.a_down()
         elif event.type in (SDL_KEYDOWN, SDL_KEYUP) and event.key in (SDLK_LEFT, SDLK_RIGHT):
             pressed = event.type == SDL_KEYDOWN
             if event.key == SDLK_LEFT:
@@ -98,8 +125,14 @@ class Boy:
             self.x += self.face_dir * RUN_SPEED * dt
             # 화면 밖으로 나가지 않게 막는다.
             self.x = max(HALF_WIDTH, min(get_canvas_width() - HALF_WIDTH, self.x))
+        elif self.state == 'AUTO_RUN':
+            self.auto_run.do(self, now, dt)
 
     def draw(self):
+        if self.state == 'AUTO_RUN':
+            self.auto_run.draw(self)
+            return
+
         if self.state == 'RUN' and self.lie == 0.0:
             # 아래에서 두 번째 줄(100)은 오른쪽, 맨 아랫줄(0)은 왼쪽으로 달린다.
             bottom = 100 if self.face_dir == 1 else 0
