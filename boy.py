@@ -9,6 +9,9 @@ LIE_DOWN_TIME = 0.6    # 눕거나 일어나는 데 걸리는 시간(초)
 QUICK_GET_UP_TIME = 0.2  # 달리려고 벌떡 일어나는 데 걸리는 시간(초)
 RUN_SPEED = 300        # 달리기 속도(픽셀/초)
 HALF_WIDTH = 32        # 그림 중심에서 몸 끝까지 가로 거리 (달리기 스프라이트 실측값)
+FOOT_DY = 39           # 그림 중심에서 발끝까지 세로 거리 (달리기 스프라이트 실측값)
+AUTO_RUN_SPEED = RUN_SPEED * 2  # 자동 무적 런은 2배 빠르다.
+AUTO_RUN_SCALE = 2.0            # 자동 무적 런은 2배 크다.
 
 # 회전 중심 = 발뒤꿈치. 그림 중심에서 뒤쪽으로 4px, 아래로 38px (스프라이트 실측값)
 # 뒤꿈치를 축으로 넘어지면 발은 땅에 붙은 채로, 누웠을 때 등이 땅에 닿는다.
@@ -22,17 +25,27 @@ class AutoRun(State):
     def enter(self, event_data):
         boy = event_data.model
         boy.lie = 0.0  # 일어나는 도중에 들어와도 바로 선 자세로 달린다.
+        boy.scale = AUTO_RUN_SCALE
         super().enter(event_data)
 
-    # do activity: 매 프레임 바라보는 방향으로 달린다.
+    # exit action
+    def exit(self, event_data):
+        event_data.model.scale = 1.0
+        super().exit(event_data)
+
+    # do activity: 매 프레임 바라보는 방향으로 빠르게 달린다.
     def do(self, boy, now, dt):
         boy.frame = (boy.frame + 1) % 8
-        boy.x += boy.face_dir * RUN_SPEED * dt
-        boy.x = max(HALF_WIDTH, min(get_canvas_width() - HALF_WIDTH, boy.x))
+        boy.x += boy.face_dir * AUTO_RUN_SPEED * dt
+        half = HALF_WIDTH * boy.scale  # 커진 만큼 화면 끝 여백도 늘린다.
+        boy.x = max(half, min(get_canvas_width() - half, boy.x))
 
     def draw(self, boy):
         bottom = 100 if boy.face_dir == 1 else 0
-        boy.image.clip_draw(boy.frame * 100, bottom, 100, 100, boy.x, boy.y)
+        size = 100 * boy.scale
+        # 그림을 키우면 발이 땅 밑으로 내려가므로, 발끝이 원래 높이에 오도록 위로 올린다.
+        y = boy.y + FOOT_DY * (boy.scale - 1)
+        boy.image.clip_draw(boy.frame * 100, bottom, 100, 100, boy.x, y, size, size)
 
 
 class Boy:
@@ -40,6 +53,7 @@ class Boy:
         self.x, self.y = 400, 90
         self.frame = 0
         self.face_dir = 1  # 1 = 오른쪽, -1 = 왼쪽
+        self.scale = 1.0   # 그림 크기 배율 (AUTO_RUN 동안만 커진다)
         self.image = load_image('animation_sheet.png')
 
         # 지금 눌려 있는 방향키. 둘을 따로 기억해야 한쪽만 뗐을 때를 처리할 수 있다.
