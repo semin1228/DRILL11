@@ -33,24 +33,29 @@ class Boy:
         self.wait_start_time = get_time()
 
         # IDLE --time_out--> SLEEP --space_down--> IDLE
-        # IDLE --run--> RUN --stop--> IDLE  (왼쪽/오른쪽은 move_dir 로 구분)
+        # IDLE, SLEEP --run--> RUN --stop--> IDLE  (왼쪽/오른쪽은 move_dir 로 구분)
         self.machine = Machine(
             model=self,
             states=['IDLE', 'SLEEP', 'RUN'],
             transitions=[
                 {'trigger': 'time_out', 'source': 'IDLE', 'dest': 'SLEEP'},
                 {'trigger': 'space_down', 'source': 'SLEEP', 'dest': 'IDLE'},
-                {'trigger': 'run', 'source': 'IDLE', 'dest': 'RUN'},
+                {'trigger': 'run', 'source': ['IDLE', 'SLEEP'], 'dest': 'RUN'},
                 {'trigger': 'stop', 'source': 'RUN', 'dest': 'IDLE'},
             ],
             initial='IDLE',
             auto_transitions=False,
-            ignore_invalid_triggers=True,  # 해당 상태에 없는 이벤트는 무시 (예: SLEEP 에서 방향키)
+            ignore_invalid_triggers=True,  # 해당 상태에 없는 이벤트는 무시 (예: IDLE 에서 SPACE)
         )
 
     # IDLE 로 돌아올 때마다 5초 타이머를 다시 시작한다.
     def on_enter_IDLE(self):
         self.wait_start_time = get_time()
+
+    # 달리기는 항상 선 자세로 그린다. 누운 정도도 바로 0 으로 맞춰야
+    # 곧바로 멈췄을 때 IDLE 이 반쯤 누운 채로 그려지지 않는다.
+    def on_enter_RUN(self):
+        self.lie = 0.0
 
     # 눌린 방향키로 이동 방향을 구한다. 둘 다 눌렸거나 둘 다 안 눌렸으면 0.
     def move_dir(self):
